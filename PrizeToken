@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.18;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+
+contract PrizeToken is ERC20, Ownable {
+    enum Prize { GOLD, BRONZE, SILVER }
+
+    event Prize_Redeemed(address indexed account, Prize prize, uint256 prize_Cost);
+
+    mapping(address => Prize) public user_Selected_Prizes;
+    mapping(Prize => uint256) public prize_Costs;
+
+    constructor(address initial_Owner) ERC20("PrizeToken", "PZT") Ownable(initial_Owner) {
+        set_Initial_Prize_Costs();
+    }
+
+    function mint(address to, uint256 num_Tokens) external onlyOwner {
+        _mint(to, num_Tokens);
+    }
+
+    function burn(uint256 num_Tokens) external {
+        require(num_Tokens > 0, "Token amount must be greater than zero for destruction");
+        require(balanceOf(msg.sender) >= num_Tokens, "Insufficient funds for prize redemption");
+        _burn(msg.sender, num_Tokens);
+    }
+
+    function redeem_Prize(uint8 prize_Number) external {
+        Prize prize = convert_Prize(prize_Number);
+        uint256 prize_Cost = get_Prize_Cost(prize);
+
+        require(prize_Cost > 0, "Invalid prize selected, cost must be greater than zero");
+        require(balanceOf(msg.sender) >= prize_Cost, "Not enough funds to redeem prize");
+
+        _burn(msg.sender, prize_Cost);
+
+        user_Selected_Prizes[msg.sender] = prize;
+        emit Prize_Redeemed(msg.sender, prize, prize_Cost);
+    }
+
+    function transfer_(address recipient, uint256 num_Tokens) external {
+        require(recipient != address(0), "Invalid recipient address provided");
+        require(balanceOf(msg.sender) >= num_Tokens, "Insufficient funds for prize transfer");
+        _transfer(msg.sender, recipient, num_Tokens);
+    }
+
+    function get_Prize_Cost(Prize prize) internal view returns (uint256) {
+        return prize_Costs[prize];
+    }
+
+    function convert_Prize(uint8 prize_Number) internal pure returns (Prize) {
+        require(prize_Number >= 1 && prize_Number <= 3, "Invalid prize number, must be between 1 and 3");
+
+        if (prize_Number == 1) {
+            return Prize.GOLD;
+        } else if (prize_Number == 2) {
+            return Prize.BRONZE;
+        } else {
+            return Prize.SILVER;
+        }
+    }
+
+    function set_Initial_Prize_Costs() internal {
+        prize_Costs[Prize.GOLD] = 2000;
+        prize_Costs[Prize.BRONZE] = 1000;
+        prize_Costs[Prize.SILVER] = 500;
+    }
+}
